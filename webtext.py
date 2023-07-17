@@ -96,9 +96,6 @@ class WebLinkEnumerater:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Web text extractor', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('pages', metavar='PAGE', type=str, nargs='+', help='Web pages')
-    #parser.add_argument('-i', '--input', dest='inputPath', type=str, default='.', help='list.csv title,url,sameDomain true or false')
-    #parser.add_argument('-d', '--diff', dest='diff', action='store_true', default=False, help='Specify if you want to list up new links')
-    #parser.add_argument('-s', '--sameDomain', dest='sameDomain', action='store_true', default=False, help='Specify if you want to restrict in the same url')
     args = parser.parse_args()
 
 
