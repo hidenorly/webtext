@@ -23,6 +23,8 @@ import json
 from urllib.parse import urljoin
 from urllib.parse import urlparse
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+
 
 class WebLinkEnumerater:
     CONTROL_CHR_PATTERN = re.compile('[\x00-\x1f\x7f]')
@@ -91,13 +93,88 @@ class WebLinkEnumerater:
 
         return result
 
+    @staticmethod
+    def getLinksByFactor(driver, pageUrl, byFactor=By.TAG_NAME, element='a', sameDomain=False, onlyTextExists=False):
+        result = {}
+
+        try:
+            tag_name_elements = driver.find_elements(byFactor, element)
+            for element in tag_name_elements:
+                url = element.get_attribute('href')
+                title = str(element.text).strip()
+                title = WebLinkEnumerater.cleanupString(title)
+                if url:
+                    if not sameDomain or WebLinkEnumerater.isSameDomain(pageUrl, url, pageUrl):
+                        if not onlyTextExists or title:
+                            result[url] = title
+        except Exception as e: #except NoSuchElementException:
+            pass
+
+        return result
+
+    @staticmethod
+    def getLinks(driver, url, isSameDomain, onlyTextExists):
+        result = {}
+
+        if isVerbose:
+            print(url)
+        try:
+            driver.get(url)
+            result = WebLinkEnumerater.getLinksByFactor(driver, url, By.TAG_NAME, 'a', isSameDomain, onlyTextExists)
+            result.update( WebLinkEnumerater.getLinksByFactor(driver, url, By.CSS_SELECTOR, 'a.post-link', isSameDomain, onlyTextExists) )
+        except Exception as e: #except NoSuchElementException:
+            print("Error at "+url)
+
+        return result
+
+    @staticmethod
+    def getNewLinks(prevUrlList, newUrlList, stopIfExist = True):
+        result = {}
+        isFoundNewOne = False
+        for aUrl, aTitle in newUrlList.items():
+            found = aUrl in prevUrlList
+            if not found:
+                result[aUrl] = aTitle
+                isFoundNewOne = True
+            if isFoundNewOne and stopIfExist and found:
+                break
+        return result
+
+
+class Reporter:
+    def __init__(self, output = None):
+        self.stream = None
+        if output:
+            self.stream = open(output, "a", encoding="utf-8")
+
+    def _print(self, data):
+        if self.stream:
+            self.stream.write( str(data) + "\n" )
+        else:
+            print( str(data) )
+
+    def print(self, data):
+        for key, value in data.items():
+            self._print( str(key) + ":" + str(value) )
+
+    def printHeader(self):
+        pass
+
+    def close(self):
+        if self.stream:
+            self.stream.close()
+        self.stream = None
+
+    def __del__(self):
+        if self.stream:
+            self.close()
+
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Web text extractor', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('pages', metavar='PAGE', type=str, nargs='+', help='Web pages')
     args = parser.parse_args()
-
 
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
@@ -112,10 +189,17 @@ if __name__ == '__main__':
     driver = webdriver.Chrome(options=options)
     driver.set_window_size(1920, 1080)
 
+
+    reporter = Reporter
+    reporter = reporter()
+
+    reporter.printHeader()
+
     for aUrl in args.pages:
         data = WebLinkEnumerater.getMetaAndText(driver, aUrl)
-        print( data )
+        reporter.print( data )
 
+    reporter.close()
     driver.quit()
     tempDriver.quit()
 
